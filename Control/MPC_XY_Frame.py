@@ -22,7 +22,7 @@ class P:
     # System config
     NX = 4  # state vector: z = [x, y, v, phi]
     NU = 2  # input vector: u = [acceleration, steer]
-    T = 6  # finite time horizon length
+    T = 1  # finite time horizon length
 
     # MPC config
     Q = np.diag([1.0, 1.0, 1.0, 1.0])  # penalty for states
@@ -57,7 +57,7 @@ class P:
 
 
 class Node:
-    def __init__(self, x=0.0, y=0.0, yaw=0.0, v=0.0, direct=1.0):
+    def __init__(self, x=0.0, y=0.0, yaw=0.0, v=0.0, direct=1.0):   # current state
         self.x = x
         self.y = y
         self.yaw = yaw
@@ -130,14 +130,14 @@ class PATH:
         return ind, er
 
 
-def calc_ref_trajectory_in_T_step(node, ref_path, sp):
+def calc_ref_trajectory_in_T_step(node, ref_path, sp)->np.ndarray:
     """
     calc referent trajectory in T steps: [x, y, v, yaw]
     using the current velocity, calc the T points along the reference path
     :param node: current information
     :param ref_path: reference path: [x, y, yaw]
     :param sp: speed profile (designed speed strategy)
-    :return: reference trajectory
+    :return: reference trajectory [4, 7]
     """
 
     z_ref = np.zeros((P.NX, P.T + 1))
@@ -195,14 +195,14 @@ def linear_mpc_control(z_ref, z0, a_old, delta_old):
     return a_old, delta_old, x, y, yaw, v
 
 
-def predict_states_in_T_step(z0, a, delta, z_ref):
+def predict_states_in_T_step(z0: list, a: np.ndarray, delta: np.ndarray, z_ref: np.ndarray):
     """
     given the current state, using the acceleration and delta strategy of last time,
     predict the states of vehicle in T steps.
-    :param z0: initial state
-    :param a: acceleration strategy of last time
-    :param delta: delta strategy of last time
-    :param z_ref: reference trajectory
+    :param z0: [4], initial state
+    :param a: [6], acceleration strategy of last time
+    :param delta: [6], delta strategy of last time
+    :param z_ref: [4, 7], reference trajectory
     :return: predict states in T steps (z_bar, used for calc linear motion model)
     """
 
@@ -214,7 +214,7 @@ def predict_states_in_T_step(z0, a, delta, z_ref):
     node = Node(x=z0[0], y=z0[1], v=z0[2], yaw=z0[3])
 
     for ai, di, i in zip(a, delta, range(1, P.T + 1)):
-        node.update(ai, di, 1.0)
+        node.update(ai, di, 1.0)    # 1.0 is forward direction
         z_bar[0, i] = node.x
         z_bar[1, i] = node.y
         z_bar[2, i] = node.v
@@ -250,13 +250,13 @@ def calc_linear_discrete_model(v, phi, delta):
     return A, B, C
 
 
-def solve_linear_mpc(z_ref, z_bar, z0, d_bar):
+def solve_linear_mpc(z_ref: np.ndarray, z_bar: np.ndarray, z0: list, d_bar: np.ndarray):
     """
     solve the quadratic optimization problem using cvxpy, solver: OSQP
-    :param z_ref: reference trajectory (desired trajectory: [x, y, v, yaw])
-    :param z_bar: predicted states in T steps
-    :param z0: initial state
-    :param d_bar: delta_bar
+    :param z_ref: [4, 7], reference trajectory (desired trajectory: [x, y, v, yaw])
+    :param z_bar: [4, 7], predicted states in T steps
+    :param z0: [4], initial state
+    :param d_bar: [6], delta_bar
     :return: optimal acceleration and steering strategy
     """
 
@@ -305,7 +305,7 @@ def solve_linear_mpc(z_ref, z_bar, z0, d_bar):
     return a, delta, x, y, yaw, v
 
 
-def calc_speed_profile(cx, cy, cyaw, target_speed):
+def calc_speed_profile(cx, cy, cyaw, target_speed)-> list:
     """
     design appropriate speed strategy
     :param cx: x of reference path [m]
@@ -356,7 +356,7 @@ def main():
     ax = [0.0, 15.0, 30.0, 50.0, 60.0]
     ay = [0.0, 40.0, 15.0, 30.0, 0.0]
     cx, cy, cyaw, ck, s = cs.calc_spline_course(
-        ax, ay, ds=P.d_dist)
+        ax, ay, ds=P.d_dist)    # target route
 
     sp = calc_speed_profile(cx, cy, cyaw, P.target_speed)
 
