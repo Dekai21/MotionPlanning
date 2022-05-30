@@ -90,6 +90,7 @@ This repository uses two models: simple car model and [car pulling trailers mode
 * [Front-Wheel Feedback / Stanley: ](http://robots.stanford.edu/papers/thrun.stanley05.pdf) Stanley: The Robot that Won the DARPA Grand Challenge
 * [LQR: ](https://github.com/ApolloAuto/apollo/tree/master/modules/control/controller) ApolloAuto/apollo: An open autonomous driving platform
 * [Linear MPC: ](https://borrelli.me.berkeley.edu/pdfpub/pub-6.pdf) MPC-Based Approach to Active Steering for Autonomous Vehicle Systems
+* [MPC: ](https://core.ac.uk/download/pdf/159785924.pdf) Page 36
 
 ## Useful Material
 * [HybridAStarTrailer (Julia): ](https://github.com/AtsushiSakai/HybridAStarTrailer) by AtsushiSakai
