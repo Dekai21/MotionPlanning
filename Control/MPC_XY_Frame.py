@@ -22,7 +22,7 @@ class P:
     # System config
     NX = 4  # state vector: z = [x, y, v, phi]
     NU = 2  # input vector: u = [acceleration, steer]
-    T = 1  # finite time horizon length
+    T = 6  # finite time horizon length
 
     # MPC config
     Q = np.diag([1.0, 1.0, 1.0, 1.0])  # penalty for states
@@ -254,7 +254,7 @@ def solve_linear_mpc(z_ref: np.ndarray, z_bar: np.ndarray, z0: list, d_bar: np.n
     """
     solve the quadratic optimization problem using cvxpy, solver: OSQP
     :param z_ref: [4, 7], reference trajectory (desired trajectory: [x, y, v, yaw])
-    :param z_bar: [4, 7], predicted states in T steps
+    :param z_bar: [4, 7], predicted states in T steps, since A, B, C matrices contain future states, need to provide z_bar to make A, B, C as fixed matrix
     :param z0: [4], initial state
     :param d_bar: [6], delta_bar
     :return: optimal acceleration and steering strategy
@@ -267,24 +267,24 @@ def solve_linear_mpc(z_ref: np.ndarray, z_bar: np.ndarray, z0: list, d_bar: np.n
     constrains = []
 
     for t in range(P.T):
-        cost += cvxpy.quad_form(u[:, t], P.R)
-        cost += cvxpy.quad_form(z_ref[:, t] - z[:, t], P.Q)
+        cost += cvxpy.quad_form(u[:, t], P.R)   # make sure the input shouldn't too large
+        cost += cvxpy.quad_form(z_ref[:, t] - z[:, t], P.Q) # make the future states close to the ref traj
 
         A, B, C = calc_linear_discrete_model(z_bar[2, t], z_bar[3, t], d_bar[t])
 
-        constrains += [z[:, t + 1] == A @ z[:, t] + B @ u[:, t] + C]
+        constrains += [z[:, t + 1] == A @ z[:, t] + B @ u[:, t] + C]    # constraint: state transition
 
         if t < P.T - 1:
-            cost += cvxpy.quad_form(u[:, t + 1] - u[:, t], P.Rd)
-            constrains += [cvxpy.abs(u[1, t + 1] - u[1, t]) <= P.steer_change_max * P.dt]
+            cost += cvxpy.quad_form(u[:, t + 1] - u[:, t], P.Rd)    # make the input shouldn't change a lot between two steps
+            constrains += [cvxpy.abs(u[1, t + 1] - u[1, t]) <= P.steer_change_max * P.dt]   # constraint: steering rate
 
-    cost += cvxpy.quad_form(z_ref[:, P.T] - z[:, P.T], P.Qf)
+    cost += cvxpy.quad_form(z_ref[:, P.T] - z[:, P.T], P.Qf)    # make the final step close to the ref
 
-    constrains += [z[:, 0] == z0]
-    constrains += [z[2, :] <= P.speed_max]
-    constrains += [z[2, :] >= P.speed_min]
-    constrains += [cvxpy.abs(u[0, :]) <= P.acceleration_max]
-    constrains += [cvxpy.abs(u[1, :]) <= P.steer_max]
+    constrains += [z[:, 0] == z0]   # constraint: current state
+    constrains += [z[2, :] <= P.speed_max]  # constraint: speed limit
+    constrains += [z[2, :] >= P.speed_min]  # constraint: speed limit
+    constrains += [cvxpy.abs(u[0, :]) <= P.acceleration_max]    # constraint: acc range
+    constrains += [cvxpy.abs(u[1, :]) <= P.steer_max]   # constraint: steer range
 
     prob = cvxpy.Problem(cvxpy.Minimize(cost), constrains)
     prob.solve(solver=cvxpy.OSQP)
